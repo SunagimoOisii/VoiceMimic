@@ -31,6 +31,7 @@ namespace VoiceMimic
         private Label statusLabel;
 
         private AudioClip previewClip;
+        private AudioSource previewSource;
         private VoiceMimicPresenter presenter;
 
         public event Action OnExportRequested;
@@ -213,12 +214,22 @@ namespace VoiceMimic
             PreviewStop();
             previewClip = AudioClip.Create("VoiceMimicPreview", pcm.samples.Length, 1, pcm.sampleRate, false);
             previewClip.SetData(pcm.samples, 0);
-            AudioUtil.PlayClip(previewClip);
+            var go = EditorUtility.CreateGameObjectWithHideFlags("VoiceMimicPreview", HideFlags.HideAndDontSave);
+            previewSource = go.AddComponent<AudioSource>();
+            previewSource.playOnAwake = false;
+            previewSource.spatialBlend = 0f;
+            previewSource.clip = previewClip;
+            previewSource.Play();
         }
 
         public void PreviewStop()
         {
-            AudioUtil.StopAllPreviewClips();
+            if (previewSource != null)
+            {
+                previewSource.Stop();
+                DestroyImmediate(previewSource.gameObject);
+                previewSource = null;
+            }
             if (previewClip != null)
             {
                 DestroyImmediate(previewClip);

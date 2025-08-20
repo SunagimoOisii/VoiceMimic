@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -56,6 +57,7 @@ namespace VoiceMimic
             split.Add(leftPane);
 
             sectionListView = new ListView();
+            sectionListView.reorderable = true;
             sectionListView.itemsSource = sections;
             sectionListView.selectionType = SelectionType.Single;
             sectionListView.makeItem = () => new Label();
@@ -74,6 +76,9 @@ namespace VoiceMimic
 
             var addButton = new Button(AddSection) { text = "追加" };
             leftPane.Add(addButton);
+
+            var removeButton = new Button(RemoveSection) { text = "削除" };
+            leftPane.Add(removeButton);
 
             var playButton = new Button(() => presenter.HandlePlay()) { text = "再生" };
             leftPane.Add(playButton);
@@ -135,8 +140,8 @@ namespace VoiceMimic
 
             startMsField.RegisterValueChangedCallback(e =>
             {
-                float v = Mathf.Clamp(e.newValue, rangeSlider.lowLimit, rangeSlider.highValue);
-                rangeSlider.lowValue = v;
+                float v = Mathf.Clamp(e.newValue, rangeSlider.lowLimit, rangeSlider.maxValue);
+                rangeSlider.minValue = v;
                 var data = CurrentSection();
                 if (data != null)
                 {
@@ -146,8 +151,8 @@ namespace VoiceMimic
 
             endMsField.RegisterValueChangedCallback(e =>
             {
-                float v = Mathf.Clamp(e.newValue, rangeSlider.lowValue, rangeSlider.highLimit);
-                rangeSlider.highValue = v;
+                float v = Mathf.Clamp(e.newValue, rangeSlider.minValue, rangeSlider.highLimit);
+                rangeSlider.maxValue = v;
                 var data = CurrentSection();
                 if (data != null)
                 {
@@ -188,6 +193,13 @@ namespace VoiceMimic
         private void AddSection()
         {
             sections.Add(new SectionData());
+            sectionListView.RefreshItems();
+            sectionListView.selectedIndex = sections.Count - 1;
+        }
+
+        private void RemoveSection()
+        {
+            sections.Remove(CurrentSection());
             sectionListView.RefreshItems();
             sectionListView.selectedIndex = sections.Count - 1;
         }

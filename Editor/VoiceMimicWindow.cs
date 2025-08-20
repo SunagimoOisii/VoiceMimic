@@ -13,8 +13,9 @@ namespace VoiceMimic
         private VoiceMimicPresenter presenter;
         private VoiceMimicModel model;
         private ObjectField clipField;
-        private IntegerField startField;
-        private IntegerField endField;
+        private FloatField startMsField;
+        private FloatField endMsField;
+        private MinMaxSlider rangeSlider;
         private FloatField pitchField;
         private IntegerField centField;
         private IntegerField fadeField;
@@ -34,18 +35,51 @@ namespace VoiceMimic
             root.Add(new Label("Voice Mimic"));
 
             clipField = new ObjectField("Clip") { objectType = typeof(AudioClip) };
-            startField = new IntegerField("Start Sample");
-            endField = new IntegerField("End Sample");
+            startMsField = new FloatField("開始(ms)");
+            endMsField = new FloatField("終了(ms)");
+            rangeSlider = new MinMaxSlider("範囲(ms)", 0f, 0f, 0f, 0f);
             pitchField = new FloatField("Pitch Semitone");
             centField = new IntegerField("Fine Cent");
             fadeField = new IntegerField("Fade Ms") { value = 40 };
 
             root.Add(clipField);
-            root.Add(startField);
-            root.Add(endField);
+            root.Add(startMsField);
+            root.Add(endMsField);
+            root.Add(rangeSlider);
             root.Add(pitchField);
             root.Add(centField);
             root.Add(fadeField);
+
+            clipField.RegisterValueChangedCallback(e =>
+            {
+                var clip = e.newValue as AudioClip;
+                if (clip != null)
+                {
+                    float lengthMs = clip.length * 1000f;
+                    rangeSlider.lowLimit = 0f;
+                    rangeSlider.highLimit = lengthMs;
+                    rangeSlider.lowValue = 0f;
+                    rangeSlider.highValue = lengthMs;
+                    startMsField.SetValueWithoutNotify(0f);
+                    endMsField.SetValueWithoutNotify(lengthMs);
+                }
+            });
+
+            rangeSlider.RegisterValueChangedCallback(e =>
+            {
+                startMsField.SetValueWithoutNotify(e.newValue.x);
+                endMsField.SetValueWithoutNotify(e.newValue.y);
+            });
+
+            startMsField.RegisterValueChangedCallback(e =>
+            {
+                rangeSlider.lowValue = Mathf.Clamp(e.newValue, rangeSlider.lowLimit, rangeSlider.highValue);
+            });
+
+            endMsField.RegisterValueChangedCallback(e =>
+            {
+                rangeSlider.highValue = Mathf.Clamp(e.newValue, rangeSlider.lowValue, rangeSlider.highLimit);
+            });
 
             var exportButton = new Button(() => presenter.HandleExport()) { text = "書き出し" };
             root.Add(exportButton);
@@ -55,11 +89,16 @@ namespace VoiceMimic
 
         public VoiceMimicModel.SequenceSnapshot SnapshotFromView()
         {
+            var clip = clipField.value as AudioClip;
+            int sampleRate = clip != null ? clip.frequency : 44100;
+            int startSample = Mathf.FloorToInt(startMsField.value / 1000f * sampleRate);
+            int endSample = Mathf.FloorToInt(endMsField.value / 1000f * sampleRate);
+
             var section = new VoiceMimicModel.Section
             {
-                clipRef = clipField.value as AudioClip,
-                startSample = startField.value,
-                endSample = endField.value,
+                clipRef = clip,
+                startSample = startSample,
+                endSample = endSample,
                 pitchSemitone = pitchField.value,
                 fineCent = centField.value,
                 fadeMs = fadeField.value

@@ -32,8 +32,8 @@ namespace VoiceMimic
         private FloatField startMsField;
         private FloatField endMsField;
         private MinMaxSlider rangeSlider;
-        private FloatField pitchField;
-        private IntegerField centField;
+        private Slider pitchSlider;
+        private SliderInt centSlider;
         private IntegerField fadeField;
 
         [MenuItem("Tools/VoiceMimic")]
@@ -92,16 +92,16 @@ namespace VoiceMimic
             startMsField = new FloatField("開始(ms)");
             endMsField = new FloatField("終了(ms)");
             rangeSlider = new MinMaxSlider("範囲(ms)", 0f, 0f, 0f, 0f);
-            pitchField = new FloatField("Pitch Semitone");
-            centField = new IntegerField("Fine Cent");
+            pitchSlider = new Slider("Pitch Semitone", -12f, 12f);
+            centSlider = new SliderInt("Fine Cent", -50, 50);
             fadeField = new IntegerField("Fade Ms") { value = 40 };
 
             rightPane.Add(clipField);
             rightPane.Add(startMsField);
             rightPane.Add(endMsField);
             rightPane.Add(rangeSlider);
-            rightPane.Add(pitchField);
-            rightPane.Add(centField);
+            rightPane.Add(pitchSlider);
+            rightPane.Add(centSlider);
             rightPane.Add(fadeField);
 
             clipField.RegisterValueChangedCallback(e =>
@@ -160,7 +160,7 @@ namespace VoiceMimic
                 }
             });
 
-            pitchField.RegisterValueChangedCallback(e =>
+            pitchSlider.RegisterValueChangedCallback(e =>
             {
                 var data = CurrentSection();
                 if (data != null)
@@ -169,7 +169,7 @@ namespace VoiceMimic
                 }
             });
 
-            centField.RegisterValueChangedCallback(e =>
+            centSlider.RegisterValueChangedCallback(e =>
             {
                 var data = CurrentSection();
                 if (data != null)
@@ -221,8 +221,8 @@ namespace VoiceMimic
             startMsField.SetEnabled(has);
             endMsField.SetEnabled(has);
             rangeSlider.SetEnabled(has);
-            pitchField.SetEnabled(has);
-            centField.SetEnabled(has);
+            pitchSlider.SetEnabled(has);
+            centSlider.SetEnabled(has);
             fadeField.SetEnabled(has);
 
             if (has)
@@ -234,8 +234,8 @@ namespace VoiceMimic
                 rangeSlider.SetValueWithoutNotify(new Vector2(data.startMs, data.endMs));
                 startMsField.SetValueWithoutNotify(data.startMs);
                 endMsField.SetValueWithoutNotify(data.endMs);
-                pitchField.SetValueWithoutNotify(data.pitchSemitone);
-                centField.SetValueWithoutNotify(data.fineCent);
+                pitchSlider.SetValueWithoutNotify(data.pitchSemitone);
+                centSlider.SetValueWithoutNotify(data.fineCent);
                 fadeField.SetValueWithoutNotify(data.fadeMs);
             }
         }
@@ -265,7 +265,7 @@ namespace VoiceMimic
         public void ShowError(List<VoiceMimicModel.Message> messages)
         {
             var text = string.Join("\n", messages.Select(m => $"{m.category}: {m.text}"));
-            EditorUtility.DisplayDialog("入力エラー", text, "OK");
+            ShowNotification(new GUIContent(text));
         }
 
         public void Save(VoiceMimicModel.PcmBuffer pcm)
@@ -284,7 +284,7 @@ namespace VoiceMimic
         {
             if (pcm == null || pcm.samples == null || pcm.samples.Length == 0)
             {
-                EditorUtility.DisplayDialog("再生エラー", "再生可能な音声データがありません", "OK");
+                ShowNotification(new GUIContent("再生可能な音声データがありません"));
                 return;
             }
 

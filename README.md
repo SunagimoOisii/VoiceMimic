@@ -37,6 +37,7 @@
 ### VoiceMimicWindow
 - `EditorWindow` を継承した View 実装
 - メニュー `Tools/VoiceMimic` から開く
+- AudioSource を用いたプレビュー再生を提供
 
 ### VoiceMimicAsset
 - 設定保存用 `ScriptableObject`

@@ -17,10 +17,15 @@ namespace VoiceMimic
             public AudioClip clip;
             public float startMs;
             public float endMs;
-            public float pitchSemitone;
+            public int pitchSemitone;
             public int fineCent;
             public int fadeMs = 40;
         }
+
+        private const int PitchMin = -12;
+        private const int PitchMax = 12;
+        private const int CentMin = -50;
+        private const int CentMax = 50;
 
         private VoiceMimicPresenter presenter;
         private VoiceMimicModel model;
@@ -32,8 +37,10 @@ namespace VoiceMimic
         private FloatField startMsField;
         private FloatField endMsField;
         private MinMaxSlider rangeSlider;
-        private Slider pitchSlider;
+        private SliderInt pitchSlider;
         private SliderInt centSlider;
+        private IntegerField pitchField;
+        private IntegerField centField;
         private IntegerField fadeField;
 
         [MenuItem("Tools/VoiceMimic")]
@@ -92,16 +99,34 @@ namespace VoiceMimic
             startMsField = new FloatField("開始(ms)");
             endMsField = new FloatField("終了(ms)");
             rangeSlider = new MinMaxSlider("範囲(ms)", 0f, 0f, 0f, 0f);
-            pitchSlider = new Slider("Pitch Semitone", -12f, 12f);
-            centSlider = new SliderInt("Fine Cent", -50, 50);
+            pitchSlider = new SliderInt("Pitch Semitone", PitchMin, PitchMax);
+            centSlider = new SliderInt("Fine Cent", CentMin, CentMax);
+            pitchField = new IntegerField();
+            centField = new IntegerField();
             fadeField = new IntegerField("Fade Ms") { value = 40 };
+
+            var pitchContainer = new VisualElement();
+            pitchContainer.style.flexDirection = FlexDirection.Row;
+            pitchSlider.style.flexGrow = 1f;
+            pitchField.style.width = 60f;
+            pitchField.label = string.Empty;
+            pitchContainer.Add(pitchSlider);
+            pitchContainer.Add(pitchField);
+
+            var centContainer = new VisualElement();
+            centContainer.style.flexDirection = FlexDirection.Row;
+            centSlider.style.flexGrow = 1f;
+            centField.style.width = 60f;
+            centField.label = string.Empty;
+            centContainer.Add(centSlider);
+            centContainer.Add(centField);
 
             rightPane.Add(clipField);
             rightPane.Add(startMsField);
             rightPane.Add(endMsField);
             rightPane.Add(rangeSlider);
-            rightPane.Add(pitchSlider);
-            rightPane.Add(centSlider);
+            rightPane.Add(pitchContainer);
+            rightPane.Add(centContainer);
             rightPane.Add(fadeField);
 
             clipField.RegisterValueChangedCallback(e =>
@@ -162,19 +187,47 @@ namespace VoiceMimic
 
             pitchSlider.RegisterValueChangedCallback(e =>
             {
+                int v = Mathf.Clamp(e.newValue, PitchMin, PitchMax);
+                pitchField.SetValueWithoutNotify(v);
                 var data = CurrentSection();
                 if (data != null)
                 {
-                    data.pitchSemitone = e.newValue;
+                    data.pitchSemitone = v;
+                }
+            });
+
+            pitchField.RegisterValueChangedCallback(e =>
+            {
+                int v = Mathf.Clamp(e.newValue, PitchMin, PitchMax);
+                pitchField.SetValueWithoutNotify(v);
+                pitchSlider.SetValueWithoutNotify(v);
+                var data = CurrentSection();
+                if (data != null)
+                {
+                    data.pitchSemitone = v;
                 }
             });
 
             centSlider.RegisterValueChangedCallback(e =>
             {
+                int v = Mathf.Clamp(e.newValue, CentMin, CentMax);
+                centField.SetValueWithoutNotify(v);
                 var data = CurrentSection();
                 if (data != null)
                 {
-                    data.fineCent = e.newValue;
+                    data.fineCent = v;
+                }
+            });
+
+            centField.RegisterValueChangedCallback(e =>
+            {
+                int v = Mathf.Clamp(e.newValue, CentMin, CentMax);
+                centField.SetValueWithoutNotify(v);
+                centSlider.SetValueWithoutNotify(v);
+                var data = CurrentSection();
+                if (data != null)
+                {
+                    data.fineCent = v;
                 }
             });
 
@@ -223,6 +276,8 @@ namespace VoiceMimic
             rangeSlider.SetEnabled(has);
             pitchSlider.SetEnabled(has);
             centSlider.SetEnabled(has);
+            pitchField.SetEnabled(has);
+            centField.SetEnabled(has);
             fadeField.SetEnabled(has);
 
             if (has)
@@ -234,8 +289,14 @@ namespace VoiceMimic
                 rangeSlider.SetValueWithoutNotify(new Vector2(data.startMs, data.endMs));
                 startMsField.SetValueWithoutNotify(data.startMs);
                 endMsField.SetValueWithoutNotify(data.endMs);
-                pitchSlider.SetValueWithoutNotify(data.pitchSemitone);
-                centSlider.SetValueWithoutNotify(data.fineCent);
+                int ps = Mathf.Clamp(data.pitchSemitone, PitchMin, PitchMax);
+                int fc = Mathf.Clamp(data.fineCent, CentMin, CentMax);
+                data.pitchSemitone = ps;
+                data.fineCent = fc;
+                pitchSlider.SetValueWithoutNotify(ps);
+                pitchField.SetValueWithoutNotify(ps);
+                centSlider.SetValueWithoutNotify(fc);
+                centField.SetValueWithoutNotify(fc);
                 fadeField.SetValueWithoutNotify(data.fadeMs);
             }
         }

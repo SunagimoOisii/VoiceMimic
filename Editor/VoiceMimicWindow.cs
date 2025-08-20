@@ -93,7 +93,8 @@ namespace VoiceMimic
                 return;
             }
 
-            var clip = AudioClip.Create("preview", pcm.samples.Length, 1, pcm.sampleRate, false);
+            int sampleCount = pcm.samples.Length / pcm.channels;
+            var clip = AudioClip.Create("preview", sampleCount, pcm.channels, pcm.sampleRate, false);
             clip.SetData(pcm.samples, 0);
             AudioPreviewPlayer.PlayClip(clip);
         }

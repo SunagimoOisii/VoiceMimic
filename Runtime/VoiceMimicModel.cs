@@ -49,6 +49,7 @@ namespace VoiceMimic
         public class PcmBuffer
         {
             public int sampleRate;
+            public int channels = 1;
             public float[] samples = Array.Empty<float>();
         }
 
@@ -176,8 +177,13 @@ namespace VoiceMimic
         /// </summary>
         public PcmBuffer Render(SequenceSnapshot snap, Section[] ordered)
         {
-            var output = new List<float>();
-            int lastFade = 0;
+            int channels = snap.mono ? 1 : 2;
+            var outputs = new List<float>[channels];
+            for (int c = 0; c < channels; c++)
+            {
+                outputs[c] = new List<float>();
+            }
+
             foreach (var s in ordered)
             {
                 var clip = s.clipRef as AudioClip;
@@ -189,56 +195,74 @@ namespace VoiceMimic
                 int start = Mathf.Clamp(s.startSample, 0, clip.samples);
                 int end = Mathf.Clamp(s.endSample, 0, clip.samples);
                 int length = Math.Max(0, end - start);
-                var src = new float[length];
+                var src = new float[length * clip.channels];
                 clip.GetData(src, start);
 
                 float pitchRatio = Mathf.Pow(2f, (s.pitchSemitone + s.fineCent / 100f) / 12f);
                 int resampledLength = Mathf.CeilToInt(length / pitchRatio);
-                var pitched = new float[resampledLength];
-                for (int i = 0; i < resampledLength; i++)
+                var pitched = new float[channels][];
+                for (int c = 0; c < channels; c++)
                 {
-                    float pos = i * pitchRatio;
-                    int idx = Mathf.FloorToInt(pos);
-                    float frac = pos - idx;
-                    float a = src[Mathf.Clamp(idx, 0, length - 1)];
-                    float b = src[Mathf.Clamp(idx + 1, 0, length - 1)];
-                    pitched[i] = a + (b - a) * frac;
-                }
-
-                float peak = pitched.Length > 0 ? pitched.Max(x => Mathf.Abs(x)) : 0f;
-                float targetLevel = Mathf.Pow(10f, -3f / 20f);
-                if (peak > 0f)
-                {
-                    float gain = targetLevel / peak;
-                    for (int i = 0; i < pitched.Length; i++)
+                    pitched[c] = new float[resampledLength];
+                    for (int i = 0; i < resampledLength; i++)
                     {
-                        pitched[i] *= gain;
+                        float pos = i * pitchRatio;
+                        int idx = Mathf.FloorToInt(pos);
+                        float frac = pos - idx;
+                        int srcCh = Mathf.Min(c, clip.channels - 1);
+                        float a = src[Mathf.Clamp(idx, 0, length - 1) * clip.channels + srcCh];
+                        float b = src[Mathf.Clamp(idx + 1, 0, length - 1) * clip.channels + srcCh];
+                        pitched[c][i] = a + (b - a) * frac;
+                    }
+
+                    float peak = pitched[c].Length > 0 ? pitched[c].Max(x => Mathf.Abs(x)) : 0f;
+                    float targetLevel = Mathf.Pow(10f, -3f / 20f);
+                    if (peak > 0f)
+                    {
+                        float gain = targetLevel / peak;
+                        for (int i = 0; i < pitched[c].Length; i++)
+                        {
+                            pitched[c][i] *= gain;
+                        }
                     }
                 }
 
                 int fade = Mathf.CeilToInt(s.fadeMs * snap.sampleRate / 1000f);
-                if (output.Count >= fade && fade > 0)
+                for (int c = 0; c < channels; c++)
                 {
-                    for (int i = 0; i < fade && i < pitched.Length; i++)
+                    var output = outputs[c];
+                    var buf = pitched[c];
+                    if (output.Count >= fade && fade > 0)
                     {
-                        int outIndex = output.Count - fade + i;
-                        float t = i / (float)fade;
-                        output[outIndex] = output[outIndex] * (1f - t) + pitched[i] * t;
+                        for (int i = 0; i < fade && i < buf.Length; i++)
+                        {
+                            int outIndex = output.Count - fade + i;
+                            float t = i / (float)fade;
+                            output[outIndex] = output[outIndex] * (1f - t) + buf[i] * t;
+                        }
+                        for (int i = fade; i < buf.Length; i++)
+                        {
+                            output.Add(buf[i]);
+                        }
                     }
-                    for (int i = fade; i < pitched.Length; i++)
+                    else
                     {
-                        output.Add(pitched[i]);
+                        output.AddRange(buf);
                     }
                 }
-                else
-                {
-                    output.AddRange(pitched);
-                }
-
-                lastFade = fade;
             }
 
-            return new PcmBuffer { sampleRate = snap.sampleRate, samples = output.ToArray() };
+            int sampleCount = outputs[0].Count;
+            var interleaved = new float[sampleCount * channels];
+            for (int i = 0; i < sampleCount; i++)
+            {
+                for (int c = 0; c < channels; c++)
+                {
+                    interleaved[i * channels + c] = outputs[c][i];
+                }
+            }
+
+            return new PcmBuffer { sampleRate = snap.sampleRate, channels = channels, samples = interleaved };
         }
 
         /// <summary>
@@ -269,10 +293,10 @@ namespace VoiceMimic
             bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
             bw.Write(16);
             bw.Write((short)1);
-            bw.Write((short)1);
+            bw.Write((short)pcm.channels);
             bw.Write(pcm.sampleRate);
-            bw.Write(pcm.sampleRate * 2);
-            bw.Write((short)2);
+            bw.Write(pcm.sampleRate * pcm.channels * 2);
+            bw.Write((short)(pcm.channels * 2));
             bw.Write((short)16);
 
             bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));

@@ -94,7 +94,8 @@ namespace VoiceMimic
                 return;
             }
 
-            var clip = AudioClip.Create("preview", pcm.samples.Length, 1, pcm.sampleRate, false);
+            int sampleCount = pcm.samples.Length / pcm.channels;
+            var clip = AudioClip.Create("preview", sampleCount, pcm.channels, pcm.sampleRate, false);
             clip.SetData(pcm.samples, 0);
             var audioUtil = typeof(AudioImporter).Assembly.GetType("UnityEditor.AudioUtil");
             // AudioUtil.PlayClip は internal メソッドのため Public 指定のみでは取得できず null 参照が発生していた

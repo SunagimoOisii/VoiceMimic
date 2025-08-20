@@ -30,7 +30,7 @@ namespace VoiceMimic
         private ProgressBar progressBar;
         private Label statusLabel;
 
-        private AudioSource previewSource;
+        private AudioClip previewClip;
         private VoiceMimicPresenter presenter;
 
         public event Action OnExportRequested;
@@ -210,33 +210,19 @@ namespace VoiceMimic
 
         public void PreviewPlay(PcmBuffer pcm)
         {
-            StopAllPreviewSources();
-            var clip = AudioClip.Create("VoiceMimicPreview", pcm.samples.Length, 1, pcm.sampleRate, false);
-            clip.SetData(pcm.samples, 0);
-
-            var go = new GameObject("VoiceMimicPreviewPlayer", typeof(AudioSource));
-            go.hideFlags = HideFlags.HideAndDontSave;
-            previewSource = go.GetComponent<AudioSource>();
-            previewSource.playOnAwake = false;
-            previewSource.clip = clip;
-            previewSource.volume = 1f;
-            previewSource.loop = false;
-            previewSource.Play();
+            PreviewStop();
+            previewClip = AudioClip.Create("VoiceMimicPreview", pcm.samples.Length, 1, pcm.sampleRate, false);
+            previewClip.SetData(pcm.samples, 0);
+            AudioUtil.PlayClip(previewClip);
         }
 
         public void PreviewStop()
         {
-            StopAllPreviewSources();
-        }
-
-        private void StopAllPreviewSources()
-        {
-            if (previewSource != null)
+            AudioUtil.StopAllPreviewClips();
+            if (previewClip != null)
             {
-                if (previewSource.isPlaying) previewSource.Stop();
-                if (previewSource.clip != null) DestroyImmediate(previewSource.clip);
-                DestroyImmediate(previewSource.gameObject);
-                previewSource = null;
+                DestroyImmediate(previewClip);
+                previewClip = null;
             }
         }
     }

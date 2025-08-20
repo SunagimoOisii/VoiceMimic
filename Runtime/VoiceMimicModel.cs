@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 
-namespace VoiceMimic.Model
+namespace VoiceMimic
 {
     /// <summary>
     /// 音声シーケンスの合成を行うモデルクラス。

@@ -1,12 +1,10 @@
+using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using VoiceMimic.Model;
-using VoiceMimic.Presenter;
 
-namespace VoiceMimic.View
+namespace VoiceMimic
 {
     /// <summary>
     /// VoiceMimic のエディタウィンドウ。
@@ -50,7 +48,7 @@ namespace VoiceMimic.View
             root.Add(centField);
             root.Add(fadeField);
 
-            var exportButton = new Button(async () => await presenter.HandleExportAsync()) { text = "書き出し" };
+            var exportButton = new Button(() => presenter.HandleExport()) { text = "書き出し" };
             root.Add(exportButton);
             var playButton = new Button(() => presenter.HandlePlay()) { text = "再生" };
             root.Add(playButton);
@@ -72,13 +70,11 @@ namespace VoiceMimic.View
 
         public void ShowError(System.Collections.Generic.List<VoiceMimicModel.Message> messages)
         {
-            foreach (var m in messages)
-            {
-                Debug.LogError($"{m.category}: {m.text}");
-            }
+            var text = string.Join("\n", messages.Select(m => $"{m.category}: {m.text}"));
+            EditorUtility.DisplayDialog("入力エラー", text, "OK");
         }
 
-        public async Task SaveAsync(VoiceMimicModel.PcmBuffer pcm)
+        public void Save(VoiceMimicModel.PcmBuffer pcm)
         {
             var path = EditorUtility.SaveFilePanel("書き出し", "", "output.wav", "wav");
             if (string.IsNullOrEmpty(path))
@@ -86,16 +82,28 @@ namespace VoiceMimic.View
                 return;
             }
 
-            await Task.Run(() => model.ExportWav(pcm, new VoiceMimicModel.ExportTarget { path = path }));
+            model.ExportWav(pcm, new VoiceMimicModel.ExportTarget { path = path });
             AssetDatabase.Refresh();
         }
 
         public void Play(VoiceMimicModel.PcmBuffer pcm)
         {
+            if (pcm == null || pcm.samples == null || pcm.samples.Length == 0)
+            {
+                EditorUtility.DisplayDialog("再生エラー", "再生可能な音声データがありません", "OK");
+                return;
+            }
+
             var clip = AudioClip.Create("preview", pcm.samples.Length, 1, pcm.sampleRate, false);
             clip.SetData(pcm.samples, 0);
             var audioUtil = typeof(AudioImporter).Assembly.GetType("UnityEditor.AudioUtil");
-            var playMethod = audioUtil.GetMethod("PlayClip", BindingFlags.Static | BindingFlags.Public, null, new[] { typeof(AudioClip) }, null);
+            // AudioUtil.PlayClip は internal メソッドのため Public 指定のみでは取得できず null 参照が発生していた
+            var playMethod = audioUtil?.GetMethod("PlayClip", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { typeof(AudioClip) }, null);
+            if (playMethod == null)
+            {
+                EditorUtility.DisplayDialog("再生エラー", "再生用メソッドが取得できませんでした", "OK");
+                return;
+            }
             playMethod.Invoke(null, new object[] { clip });
         }
     }

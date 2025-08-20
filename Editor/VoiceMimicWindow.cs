@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -96,15 +95,7 @@ namespace VoiceMimic
 
             var clip = AudioClip.Create("preview", pcm.samples.Length, 1, pcm.sampleRate, false);
             clip.SetData(pcm.samples, 0);
-            var audioUtil = typeof(AudioImporter).Assembly.GetType("UnityEditor.AudioUtil");
-            // AudioUtil.PlayClip は internal メソッドのため Public 指定のみでは取得できず null 参照が発生していた
-            var playMethod = audioUtil?.GetMethod("PlayClip", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { typeof(AudioClip) }, null);
-            if (playMethod == null)
-            {
-                EditorUtility.DisplayDialog("再生エラー", "再生用メソッドが取得できませんでした", "OK");
-                return;
-            }
-            playMethod.Invoke(null, new object[] { clip });
+            AudioPreviewPlayer.PlayClip(clip);
         }
     }
 }

@@ -1,5 +1,4 @@
 using UnityEngine;
-using VoiceMimic.Model;
 
 namespace VoiceMimic
 {

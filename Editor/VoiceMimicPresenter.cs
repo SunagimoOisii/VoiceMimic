@@ -1,7 +1,6 @@
-using System.Threading.Tasks;
-using VoiceMimic.Model;
+using System.Collections.Generic;
 
-namespace VoiceMimic.Presenter
+namespace VoiceMimic
 {
     /// <summary>
     /// View からの操作を受け取り Model を呼び出すプレゼンター。
@@ -20,7 +19,7 @@ namespace VoiceMimic.Presenter
         /// <summary>
         /// 作成ボタン押下処理。
         /// </summary>
-        public async Task HandleExportAsync()
+        public void HandleExport()
         {
             var snap = view.SnapshotFromView();
             var validation = model.Validate(snap);
@@ -32,7 +31,7 @@ namespace VoiceMimic.Presenter
 
             var ordered = model.OrderSections(snap);
             var pcm = model.Render(snap, ordered);
-            await view.SaveAsync(pcm);
+            view.Save(pcm);
         }
 
         /// <summary>
@@ -41,6 +40,13 @@ namespace VoiceMimic.Presenter
         public void HandlePlay()
         {
             var snap = view.SnapshotFromView();
+            var validation = model.Validate(snap);
+            if (!validation.isOk)
+            {
+                view.ShowError(validation.messages);
+                return;
+            }
+
             var ordered = model.OrderSections(snap);
             var pcm = model.Render(snap, ordered);
             view.Play(pcm);
@@ -53,8 +59,8 @@ namespace VoiceMimic.Presenter
     public interface IVoiceMimicView
     {
         VoiceMimicModel.SequenceSnapshot SnapshotFromView();
-        void ShowError(System.Collections.Generic.List<VoiceMimicModel.Message> messages);
-        Task SaveAsync(VoiceMimicModel.PcmBuffer pcm);
+        void ShowError(List<VoiceMimicModel.Message> messages);
+        void Save(VoiceMimicModel.PcmBuffer pcm);
         void Play(VoiceMimicModel.PcmBuffer pcm);
     }
 }

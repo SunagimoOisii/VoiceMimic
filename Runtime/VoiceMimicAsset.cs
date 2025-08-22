@@ -3,7 +3,7 @@ using UnityEngine;
 namespace VoiceMimic
 {
     /// <summary>
-    /// 設定保存用アセット。
+    /// 設定保存用アセット
     /// </summary>
     [CreateAssetMenu(menuName = "VoiceMimic/Asset")]
     public class VoiceMimicAsset : ScriptableObject

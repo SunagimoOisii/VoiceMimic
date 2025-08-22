@@ -1,19 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using UnityEngine;
-
 namespace VoiceMimic
 {
+    using System;
+    using System.Text;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using UnityEngine;
+
     /// <summary>
-    /// 音声シーケンスの合成を行うモデルクラス。
+    /// 音声シーケンス合成, 書き出し、設定用アセット書き出しを担当
     /// </summary>
     public class VoiceMimicModel
     {
-        /// <summary>
-        /// 入力区間情報。
-        /// </summary>
         public class Section
         {
             public UnityEngine.Object clipRef;
@@ -24,9 +22,6 @@ namespace VoiceMimic
             public int fadeMs;
         }
 
-        /// <summary>
-        /// スナップショット。
-        /// </summary>
         public class SequenceSnapshot
         {
             public Section[] sections;
@@ -35,17 +30,11 @@ namespace VoiceMimic
             public bool mono = true;
         }
 
-        /// <summary>
-        /// 書き出し先。
-        /// </summary>
         public class ExportTarget
         {
             public string path;
         }
 
-        /// <summary>
-        /// PCMバッファ。
-        /// </summary>
         public class PcmBuffer
         {
             public int sampleRate;
@@ -53,18 +42,8 @@ namespace VoiceMimic
             public float[] samples = Array.Empty<float>();
         }
 
-        public enum Severity
-        {
-            Error,
-            Warning
-        }
-
-        public enum Category
-        {
-            Input,
-            Config,
-            IO
-        }
+        public enum Severity{ Warning, Error }
+        public enum Category{ Input, Config, IO }
 
         public class Message
         {
@@ -77,12 +56,9 @@ namespace VoiceMimic
         public class ValidationResult
         {
             public bool isOk;
-            public List<Message> messages = new List<Message>();
+            public List<Message> messages = new();
         }
 
-        /// <summary>
-        /// 入力スナップショットの検証を行う。
-        /// </summary>
         public ValidationResult Validate(SequenceSnapshot snap)
         {
             var result = new ValidationResult { isOk = true };
@@ -93,8 +69,8 @@ namespace VoiceMimic
                 {
                     severity = Severity.Error,
                     category = Category.Input,
-                    path = "sections",
-                    text = "区間が指定されていません"
+                    path     = "sections",
+                    text     = "区間が指定されていません"
                 });
                 return result;
             }
@@ -172,9 +148,6 @@ namespace VoiceMimic
             return list.ToArray();
         }
 
-        /// <summary>
-        /// PCMバッファを生成する。
-        /// </summary>
         public PcmBuffer Render(SequenceSnapshot snap, Section[] ordered)
         {
             int channels = snap.mono ? 1 : 2;
@@ -187,57 +160,53 @@ namespace VoiceMimic
             foreach (var s in ordered)
             {
                 var clip = s.clipRef as AudioClip;
-                if (clip == null)
-                {
-                    continue;
-                }
+                if (clip == null) continue;
 
-                int start = Mathf.Clamp(s.startSample, 0, clip.samples);
-                int end = Mathf.Clamp(s.endSample, 0, clip.samples);
+                int start  = Mathf.Clamp(s.startSample, 0, clip.samples);
+                int end    = Mathf.Clamp(s.endSample, 0, clip.samples);
                 int length = Math.Max(0, end - start);
-                var src = new float[length * clip.channels];
+                var src    = new float[length * clip.channels];
                 clip.GetData(src, start);
 
-                float pitchRatio = Mathf.Pow(2f, (s.pitchSemitone + s.fineCent / 100f) / 12f);
-                int resampledLength = Mathf.CeilToInt(length / pitchRatio);
-                var pitched = new float[channels][];
+                var pitchRatio      = Mathf.Pow(2f, (s.pitchSemitone + s.fineCent / 100f) / 12f);
+                var resampledLength = Mathf.CeilToInt(length / pitchRatio);
+                var pitched         = new float[channels][];
                 for (int c = 0; c < channels; c++)
                 {
                     pitched[c] = new float[resampledLength];
                     for (int i = 0; i < resampledLength; i++)
                     {
-                        float pos = i * pitchRatio;
-                        int idx = Mathf.FloorToInt(pos);
-                        float frac = pos - idx;
-                        int srcCh = Mathf.Min(c, clip.channels - 1);
-                        float a = src[Mathf.Clamp(idx, 0, length - 1) * clip.channels + srcCh];
-                        float b = src[Mathf.Clamp(idx + 1, 0, length - 1) * clip.channels + srcCh];
+                        var pos   = i * pitchRatio;
+                        var idx   = Mathf.FloorToInt(pos);
+                        var frac  = pos - idx;
+                        var srcCh = Mathf.Min(c, clip.channels - 1);
+                        var a = src[Mathf.Clamp(idx, 0, length - 1) * clip.channels + srcCh];
+                        var b = src[Mathf.Clamp(idx + 1, 0, length - 1) * clip.channels + srcCh];
                         pitched[c][i] = a + (b - a) * frac;
                     }
 
-                    float peak = pitched[c].Length > 0 ? pitched[c].Max(x => Mathf.Abs(x)) : 0f;
-                    float targetLevel = Mathf.Pow(10f, -3f / 20f);
-                    if (peak > 0f)
+                    var peak = pitched[c].Length > 0 ? pitched[c].Max(x => Mathf.Abs(x)) : 0f;
+                    if (peak <= 0f) continue;
+
+                    var targetLevel = Mathf.Pow(10f, -3f / 20f);
+                    var gain        = targetLevel / peak;
+                    for (int i = 0; i < pitched[c].Length; i++)
                     {
-                        float gain = targetLevel / peak;
-                        for (int i = 0; i < pitched[c].Length; i++)
-                        {
-                            pitched[c][i] *= gain;
-                        }
+                        pitched[c][i] *= gain;
                     }
                 }
 
                 int fade = Mathf.CeilToInt(s.fadeMs * snap.sampleRate / 1000f);
                 for (int c = 0; c < channels; c++)
                 {
+                    var buf    = pitched[c];
                     var output = outputs[c];
-                    var buf = pitched[c];
                     if (output.Count >= fade && fade > 0)
                     {
                         for (int i = 0; i < fade && i < buf.Length; i++)
                         {
-                            int outIndex = output.Count - fade + i;
-                            float t = i / (float)fade;
+                            var t        = i / (float)fade;
+                            var outIndex = output.Count - fade + i;
                             output[outIndex] = output[outIndex] * (1f - t) + buf[i] * t;
                         }
                         for (int i = fade; i < buf.Length; i++)
@@ -245,10 +214,7 @@ namespace VoiceMimic
                             output.Add(buf[i]);
                         }
                     }
-                    else
-                    {
-                        output.AddRange(buf);
-                    }
+                    else output.AddRange(buf);
                 }
             }
 
@@ -265,9 +231,6 @@ namespace VoiceMimic
             return new PcmBuffer { sampleRate = snap.sampleRate, channels = channels, samples = interleaved };
         }
 
-        /// <summary>
-        /// WAVファイルとして書き出す。
-        /// </summary>
         public void ExportWav(PcmBuffer pcm, ExportTarget target)
         {
             if (string.IsNullOrEmpty(target.path))
@@ -276,21 +239,21 @@ namespace VoiceMimic
             }
 
             var dir = Path.GetDirectoryName(target.path);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            if (string.IsNullOrEmpty(dir) == false && Directory.Exists(dir) == false)
             {
                 Directory.CreateDirectory(dir);
             }
 
             using var fs = new FileStream(target.path, FileMode.Create, FileAccess.Write);
             using var bw = new BinaryWriter(fs);
-            int dataLength = pcm.samples.Length * 2;
-            int riffLength = 36 + dataLength;
+            var dataLength = pcm.samples.Length * 2;
+            var riffLength = 36 + dataLength;
 
-            bw.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+            bw.Write(Encoding.ASCII.GetBytes("RIFF"));
             bw.Write(riffLength);
-            bw.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+            bw.Write(Encoding.ASCII.GetBytes("WAVE"));
 
-            bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+            bw.Write(Encoding.ASCII.GetBytes("fmt "));
             bw.Write(16);
             bw.Write((short)1);
             bw.Write((short)pcm.channels);
@@ -299,12 +262,12 @@ namespace VoiceMimic
             bw.Write((short)(pcm.channels * 2));
             bw.Write((short)16);
 
-            bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+            bw.Write(Encoding.ASCII.GetBytes("data"));
             bw.Write(dataLength);
 
             for (int i = 0; i < pcm.samples.Length; i++)
             {
-                short s = (short)Mathf.Clamp(pcm.samples[i] * 32767f, -32768f, 32767f);
+                var s = (short)Mathf.Clamp(pcm.samples[i] * 32767f, -32768f, 32767f);
                 bw.Write(s);
             }
         }

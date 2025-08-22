@@ -1,16 +1,16 @@
-using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
-using UnityEditor.UIElements;
-using UnityEngine;
-using UnityEngine.UIElements;
-
 namespace VoiceMimic
 {
+    using System.Collections.Generic;
+    using System.Linq;
+    using UnityEditor;
+    using UnityEditor.UIElements;
+    using UnityEngine;
+    using UnityEngine.UIElements;
+
     /// <summary>
-    /// VoiceMimic のエディタウィンドウ。
+    /// VoiceMimic のエディタウィンドウ生成, 管理を担当
     /// </summary>
-    public class VoiceMimicWindow : EditorWindow, IVoiceMimicView
+    public class VoiceMimicView : EditorWindow
     {
         private class SectionData
         {
@@ -24,21 +24,22 @@ namespace VoiceMimic
 
         private const int PitchMin = -12;
         private const int PitchMax = 12;
-        private const int CentMin = -50;
-        private const int CentMax = 50;
+        private const int CentMin  = -50;
+        private const int CentMax  = 50;
 
-        private VoiceMimicPresenter presenter;
         private VoiceMimicModel model;
-        private readonly List<SectionData> sections = new List<SectionData>();
+        private VoiceMimicPresenter presenter;
+
+        private readonly List<SectionData> sections = new();
         private ListView sectionListView;
         private int selectedIndex = -1;
 
-        private ObjectField clipField;
-        private FloatField startMsField;
-        private FloatField endMsField;
+        private ObjectField  clipField;
+        private FloatField   startMsField;
+        private FloatField   endMsField;
         private MinMaxSlider rangeSlider;
-        private SliderInt pitchSlider;
-        private SliderInt centSlider;
+        private SliderInt    pitchSlider;
+        private SliderInt    centSlider;
         private IntegerField pitchField;
         private IntegerField centField;
         private IntegerField fadeField;
@@ -46,23 +47,41 @@ namespace VoiceMimic
         [MenuItem("Tools/VoiceMimic")]
         public static void ShowWindow()
         {
-            var window = GetWindow<VoiceMimicWindow>();
+            var window = GetWindow<VoiceMimicView>();
             window.titleContent = new GUIContent("Voice Mimic");
         }
 
         private void OnEnable()
         {
-            model = new VoiceMimicModel();
+            model     = new VoiceMimicModel();
             presenter = new VoiceMimicPresenter(model, this);
-            var root = rootVisualElement;
-            root.Clear();
 
+            //UI ToolKit で GUI 作成
+            var root  = rootVisualElement;
             var split = new TwoPaneSplitView(0, 250, TwoPaneSplitViewOrientation.Horizontal);
+            root.Clear();
             root.Add(split);
 
+            BuildLeftUI(split);
+            BuildRightUI(split);
+
+            UpdateDetail();
+        }
+
+        private void BuildLeftUI(TwoPaneSplitView split)
+        {
             var leftPane = new VisualElement();
             split.Add(leftPane);
 
+            //各種ボタン
+            var bar = new Toolbar();
+            bar.Add(new ToolbarButton(AddSection)    { text = "追加" });
+            bar.Add(new ToolbarButton(RemoveSection) { text = "削除" });
+            bar.Add(new ToolbarButton(() => presenter.HandlePlay())   { text = "再生" });
+            bar.Add(new ToolbarButton(() => presenter.HandleExport()) { text = "書き出し" });
+            leftPane.Add(bar);
+
+            //セクションリスト(リスト中の要素クリックでウィンドウ右に対応の内容を表示)
             sectionListView = new ListView();
             sectionListView.reorderable = true;
             sectionListView.itemsSource = sections;
@@ -71,7 +90,7 @@ namespace VoiceMimic
             sectionListView.bindItem = (e, i) =>
             {
                 var label = (Label)e;
-                var data = sections[i];
+                var data  = sections[i];
                 label.text = data.clip != null ? data.clip.name : "未設定";
             };
             sectionListView.selectionChanged += _ =>
@@ -80,167 +99,6 @@ namespace VoiceMimic
                 UpdateDetail();
             };
             leftPane.Add(sectionListView);
-
-            var addButton = new Button(AddSection) { text = "追加" };
-            leftPane.Add(addButton);
-
-            var removeButton = new Button(RemoveSection) { text = "削除" };
-            leftPane.Add(removeButton);
-
-            var playButton = new Button(() => presenter.HandlePlay()) { text = "再生" };
-            leftPane.Add(playButton);
-            var exportButton = new Button(() => presenter.HandleExport()) { text = "書き出し" };
-            leftPane.Add(exportButton);
-
-            var rightPane = new VisualElement();
-            split.Add(rightPane);
-
-            clipField = new ObjectField("Clip") { objectType = typeof(AudioClip) };
-            startMsField = new FloatField("開始(ms)");
-            endMsField = new FloatField("終了(ms)");
-            rangeSlider = new MinMaxSlider("範囲(ms)", 0f, 0f, 0f, 0f);
-            pitchSlider = new SliderInt("Pitch Semitone", PitchMin, PitchMax);
-            centSlider = new SliderInt("Fine Cent", CentMin, CentMax);
-            pitchField = new IntegerField();
-            centField = new IntegerField();
-            fadeField = new IntegerField("Fade Ms") { value = 40 };
-
-            var pitchContainer = new VisualElement();
-            pitchContainer.style.flexDirection = FlexDirection.Row;
-            pitchSlider.style.flexGrow = 1f;
-            pitchField.style.width = 60f;
-            pitchField.label = string.Empty;
-            pitchContainer.Add(pitchSlider);
-            pitchContainer.Add(pitchField);
-
-            var centContainer = new VisualElement();
-            centContainer.style.flexDirection = FlexDirection.Row;
-            centSlider.style.flexGrow = 1f;
-            centField.style.width = 60f;
-            centField.label = string.Empty;
-            centContainer.Add(centSlider);
-            centContainer.Add(centField);
-
-            rightPane.Add(clipField);
-            rightPane.Add(startMsField);
-            rightPane.Add(endMsField);
-            rightPane.Add(rangeSlider);
-            rightPane.Add(pitchContainer);
-            rightPane.Add(centContainer);
-            rightPane.Add(fadeField);
-
-            clipField.RegisterValueChangedCallback(e =>
-            {
-                var data = CurrentSection();
-                var clip = e.newValue as AudioClip;
-                if (data != null)
-                {
-                    data.clip = clip;
-                    if (clip != null)
-                    {
-                        float lengthMs = clip.length * 1000f;
-                        data.startMs = 0f;
-                        data.endMs = lengthMs;
-                        rangeSlider.lowLimit = 0f;
-                        rangeSlider.highLimit = lengthMs;
-                        rangeSlider.SetValueWithoutNotify(new Vector2(0f, lengthMs));
-                        startMsField.SetValueWithoutNotify(0f);
-                        endMsField.SetValueWithoutNotify(lengthMs);
-                    }
-                }
-                sectionListView.RefreshItems();
-            });
-
-            rangeSlider.RegisterValueChangedCallback(e =>
-            {
-                startMsField.SetValueWithoutNotify(e.newValue.x);
-                endMsField.SetValueWithoutNotify(e.newValue.y);
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.startMs = e.newValue.x;
-                    data.endMs = e.newValue.y;
-                }
-            });
-
-            startMsField.RegisterValueChangedCallback(e =>
-            {
-                float v = Mathf.Clamp(e.newValue, rangeSlider.lowLimit, rangeSlider.maxValue);
-                rangeSlider.minValue = v;
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.startMs = v;
-                }
-            });
-
-            endMsField.RegisterValueChangedCallback(e =>
-            {
-                float v = Mathf.Clamp(e.newValue, rangeSlider.minValue, rangeSlider.highLimit);
-                rangeSlider.maxValue = v;
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.endMs = v;
-                }
-            });
-
-            pitchSlider.RegisterValueChangedCallback(e =>
-            {
-                int v = Mathf.Clamp(e.newValue, PitchMin, PitchMax);
-                pitchField.SetValueWithoutNotify(v);
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.pitchSemitone = v;
-                }
-            });
-
-            pitchField.RegisterValueChangedCallback(e =>
-            {
-                int v = Mathf.Clamp(e.newValue, PitchMin, PitchMax);
-                pitchField.SetValueWithoutNotify(v);
-                pitchSlider.SetValueWithoutNotify(v);
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.pitchSemitone = v;
-                }
-            });
-
-            centSlider.RegisterValueChangedCallback(e =>
-            {
-                int v = Mathf.Clamp(e.newValue, CentMin, CentMax);
-                centField.SetValueWithoutNotify(v);
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.fineCent = v;
-                }
-            });
-
-            centField.RegisterValueChangedCallback(e =>
-            {
-                int v = Mathf.Clamp(e.newValue, CentMin, CentMax);
-                centField.SetValueWithoutNotify(v);
-                centSlider.SetValueWithoutNotify(v);
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.fineCent = v;
-                }
-            });
-
-            fadeField.RegisterValueChangedCallback(e =>
-            {
-                var data = CurrentSection();
-                if (data != null)
-                {
-                    data.fadeMs = e.newValue;
-                }
-            });
-
-            UpdateDetail();
         }
 
         private void AddSection()
@@ -257,13 +115,127 @@ namespace VoiceMimic
             sectionListView.selectedIndex = sections.Count - 1;
         }
 
-        private SectionData CurrentSection()
+        private void BuildRightUI(TwoPaneSplitView split)
         {
-            if (selectedIndex < 0 || selectedIndex >= sections.Count)
+            var rightPane = new VisualElement();
+            split.Add(rightPane);
+
+            //使用音声指定項目
+            clipField    = new ObjectField("Clip") { objectType = typeof(AudioClip) };
+            clipField.RegisterValueChangedCallback(e =>
             {
-                return null;
-            }
-            return sections[selectedIndex];
+                var data = CurrentSection();
+                var clip = e.newValue as AudioClip;
+
+                if (data == null || clip == null) return;
+                data.clip = clip;
+
+                var lengthMs = clip.length * 1000f;
+                data.startMs = 0f;
+                data.endMs = lengthMs;
+                rangeSlider.lowLimit  = 0f;
+                rangeSlider.highLimit = lengthMs;
+                rangeSlider.SetValueWithoutNotify(new Vector2(0f, lengthMs));
+                startMsField.SetValueWithoutNotify(0f);
+                endMsField.SetValueWithoutNotify(lengthMs);
+
+                sectionListView.RefreshItems();
+            });
+            rightPane.Add(clipField);
+
+            //音声の使用区間指定フィールド, スライダー
+            startMsField = new FloatField("開始(ms)");
+            startMsField.RegisterValueChangedCallback(e =>
+            {
+                float v = Mathf.Clamp(e.newValue, rangeSlider.lowLimit, rangeSlider.maxValue);
+                rangeSlider.minValue = v;
+                var data = CurrentSection();
+                if (data != null) data.startMs = v;
+            });
+            endMsField = new FloatField("終了(ms)");
+            endMsField.RegisterValueChangedCallback(e =>
+            {
+                float v = Mathf.Clamp(e.newValue, rangeSlider.minValue, rangeSlider.highLimit);
+                rangeSlider.maxValue = v;
+                var data = CurrentSection();
+                if (data != null) data.endMs = v;
+            });
+            rangeSlider = new MinMaxSlider("範囲(ms)", 0f, 0f, 0f, 0f);
+            rangeSlider.RegisterValueChangedCallback(e =>
+            {
+                startMsField.SetValueWithoutNotify(e.newValue.x);
+                endMsField.SetValueWithoutNotify(e.newValue.y);
+                var data = CurrentSection();
+                if (data != null)
+                {
+                    data.startMs = e.newValue.x;
+                    data.endMs   = e.newValue.y;
+                }
+            });
+            rightPane.Add(startMsField);
+            rightPane.Add(endMsField);
+            rightPane.Add(rangeSlider);
+
+            //ピッチ調整フィールド, スライダー
+            var pitchContainer = new VisualElement();
+            pitchContainer.style.flexDirection = FlexDirection.Row;
+            pitchSlider                = new SliderInt("Pitch Semitone", PitchMin, PitchMax);
+            pitchSlider.style.flexGrow = 1f;
+            pitchSlider.RegisterValueChangedCallback(e =>
+            {
+                int v = Mathf.Clamp(e.newValue, PitchMin, PitchMax);
+                pitchField.SetValueWithoutNotify(v);
+                var data = CurrentSection();
+                if (data != null) data.pitchSemitone = v;
+            });
+            pitchField             = new IntegerField();
+            pitchField.style.width = 60f;
+            pitchField.RegisterValueChangedCallback(e =>
+            {
+                int v = Mathf.Clamp(e.newValue, PitchMin, PitchMax);
+                pitchField.SetValueWithoutNotify(v);
+                pitchSlider.SetValueWithoutNotify(v);
+                var data = CurrentSection();
+                if (data != null) data.pitchSemitone = v;
+            });
+            pitchContainer.Add(pitchSlider);
+            pitchContainer.Add(pitchField);
+            rightPane.Add(pitchContainer);
+            
+            //セント調整フィールド, スライダー
+            var centContainer = new VisualElement();
+            centContainer.style.flexDirection = FlexDirection.Row;
+            centSlider                = new SliderInt("Fine Cent", CentMin, CentMax);
+            centSlider.style.flexGrow = 1f;
+            centSlider.RegisterValueChangedCallback(e =>
+            {
+                int v = Mathf.Clamp(e.newValue, CentMin, CentMax);
+                centField.SetValueWithoutNotify(v);
+                var data = CurrentSection();
+                if (data != null) data.fineCent = v;
+            });
+            centField = new IntegerField();
+            centField.style.width = 60f;
+            centField.RegisterValueChangedCallback(e =>
+            {
+                int v = Mathf.Clamp(e.newValue, CentMin, CentMax);
+                centField.SetValueWithoutNotify(v);
+                centSlider.SetValueWithoutNotify(v);
+                var data = CurrentSection();
+                if (data != null) data.fineCent = v;
+            });
+            centContainer.Add(centSlider);
+            centContainer.Add(centField);
+            rightPane.Add(centContainer);
+
+            //フェード調整フィールド
+            fadeField = new IntegerField("Fade Ms") { value = 40 };   
+            fadeField.RegisterValueChangedCallback(e =>
+            {
+                var data = CurrentSection();
+                if (data != null) data.fadeMs = e.newValue;
+            });
+            rightPane.Add(fadeField);
         }
 
         private void UpdateDetail()
@@ -280,25 +252,30 @@ namespace VoiceMimic
             centField.SetEnabled(has);
             fadeField.SetEnabled(has);
 
-            if (has)
-            {
-                clipField.SetValueWithoutNotify(data.clip);
-                float lengthMs = data.clip != null ? data.clip.length * 1000f : 0f;
-                rangeSlider.lowLimit = 0f;
-                rangeSlider.highLimit = lengthMs;
-                rangeSlider.SetValueWithoutNotify(new Vector2(data.startMs, data.endMs));
-                startMsField.SetValueWithoutNotify(data.startMs);
-                endMsField.SetValueWithoutNotify(data.endMs);
-                int ps = Mathf.Clamp(data.pitchSemitone, PitchMin, PitchMax);
-                int fc = Mathf.Clamp(data.fineCent, CentMin, CentMax);
-                data.pitchSemitone = ps;
-                data.fineCent = fc;
-                pitchSlider.SetValueWithoutNotify(ps);
-                pitchField.SetValueWithoutNotify(ps);
-                centSlider.SetValueWithoutNotify(fc);
-                centField.SetValueWithoutNotify(fc);
-                fadeField.SetValueWithoutNotify(data.fadeMs);
-            }
+            if (has == false) return;
+
+            clipField.SetValueWithoutNotify(data.clip);
+            float lengthMs = data.clip != null ? data.clip.length * 1000f : 0f;
+            rangeSlider.lowLimit = 0f;
+            rangeSlider.highLimit = lengthMs;
+            rangeSlider.SetValueWithoutNotify(new Vector2(data.startMs, data.endMs));
+            startMsField.SetValueWithoutNotify(data.startMs);
+            endMsField.SetValueWithoutNotify(data.endMs);
+            int ps = Mathf.Clamp(data.pitchSemitone, PitchMin, PitchMax);
+            int fc = Mathf.Clamp(data.fineCent, CentMin, CentMax);
+            data.fineCent = fc;
+            data.pitchSemitone = ps;
+            pitchSlider.SetValueWithoutNotify(ps);
+            pitchField.SetValueWithoutNotify(ps);
+            centSlider.SetValueWithoutNotify(fc);
+            centField.SetValueWithoutNotify(fc);
+            fadeField.SetValueWithoutNotify(data.fadeMs);
+        }
+
+        private SectionData CurrentSection()
+        {
+            if (selectedIndex < 0 ||  selectedIndex >= sections.Count) return null;
+            return sections[selectedIndex];
         }
 
         public VoiceMimicModel.SequenceSnapshot SnapshotFromView()

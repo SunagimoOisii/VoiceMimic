@@ -47,8 +47,8 @@ namespace VoiceMimic
         [MenuItem("Tools/VoiceMimic")]
         public static void ShowWindow()
         {
-            var window = GetWindow<VoiceMimicView>();
-            window.titleContent = new GUIContent("Voice Mimic");
+            var w = GetWindow<VoiceMimicView>();
+            w.titleContent = new GUIContent("Voice Mimic");
         }
 
         private void OnEnable()
@@ -70,8 +70,8 @@ namespace VoiceMimic
 
         private void BuildLeftUI(TwoPaneSplitView split)
         {
-            var leftPane = new VisualElement();
-            split.Add(leftPane);
+            var leftPanel = new VisualElement();
+            split.Add(leftPanel);
 
             //各種ボタン
             var bar = new Toolbar();
@@ -79,7 +79,7 @@ namespace VoiceMimic
             bar.Add(new ToolbarButton(RemoveSection) { text = "削除" });
             bar.Add(new ToolbarButton(() => presenter.HandlePlay())   { text = "再生" });
             bar.Add(new ToolbarButton(() => presenter.HandleExport()) { text = "書き出し" });
-            leftPane.Add(bar);
+            leftPanel.Add(bar);
 
             //セクションリスト(リスト中の要素クリックでウィンドウ右に対応の内容を表示)
             sectionListView = new ListView();
@@ -98,7 +98,7 @@ namespace VoiceMimic
                 selectedIndex = sectionListView.selectedIndex;
                 UpdateDetail();
             };
-            leftPane.Add(sectionListView);
+            leftPanel.Add(sectionListView);
         }
 
         private void AddSection()
@@ -117,8 +117,8 @@ namespace VoiceMimic
 
         private void BuildRightUI(TwoPaneSplitView split)
         {
-            var rightPane = new VisualElement();
-            split.Add(rightPane);
+            var rightPanel = new VisualElement();
+            split.Add(rightPanel);
 
             //使用音声指定項目
             clipField    = new ObjectField("Clip") { objectType = typeof(AudioClip) };
@@ -141,7 +141,7 @@ namespace VoiceMimic
 
                 sectionListView.RefreshItems();
             });
-            rightPane.Add(clipField);
+            rightPanel.Add(clipField);
 
             //音声の使用区間指定フィールド, スライダー
             startMsField = new FloatField("開始(ms)");
@@ -172,9 +172,9 @@ namespace VoiceMimic
                     data.endMs   = e.newValue.y;
                 }
             });
-            rightPane.Add(startMsField);
-            rightPane.Add(endMsField);
-            rightPane.Add(rangeSlider);
+            rightPanel.Add(startMsField);
+            rightPanel.Add(endMsField);
+            rightPanel.Add(rangeSlider);
 
             //ピッチ調整フィールド, スライダー
             var pitchContainer = new VisualElement();
@@ -200,7 +200,7 @@ namespace VoiceMimic
             });
             pitchContainer.Add(pitchSlider);
             pitchContainer.Add(pitchField);
-            rightPane.Add(pitchContainer);
+            rightPanel.Add(pitchContainer);
             
             //セント調整フィールド, スライダー
             var centContainer = new VisualElement();
@@ -226,7 +226,7 @@ namespace VoiceMimic
             });
             centContainer.Add(centSlider);
             centContainer.Add(centField);
-            rightPane.Add(centContainer);
+            rightPanel.Add(centContainer);
 
             //フェード調整フィールド
             fadeField = new IntegerField("Fade Ms") { value = 40 };   
@@ -235,7 +235,7 @@ namespace VoiceMimic
                 var data = CurrentSection();
                 if (data != null) data.fadeMs = e.newValue;
             });
-            rightPane.Add(fadeField);
+            rightPanel.Add(fadeField);
         }
 
         private void UpdateDetail()
@@ -263,7 +263,7 @@ namespace VoiceMimic
             endMsField.SetValueWithoutNotify(data.endMs);
             int ps = Mathf.Clamp(data.pitchSemitone, PitchMin, PitchMax);
             int fc = Mathf.Clamp(data.fineCent, CentMin, CentMax);
-            data.fineCent = fc;
+            data.fineCent      = fc;
             data.pitchSemitone = ps;
             pitchSlider.SetValueWithoutNotify(ps);
             pitchField.SetValueWithoutNotify(ps);

@@ -17,7 +17,7 @@ namespace VoiceMimic
             public UnityEngine.Object clipRef;
             public int startSample;
             public int endSample;
-            public float pitchSemitone;
+            public int pitchSemitone;
             public int fineCent;
             public int fadeMs;
         }
@@ -42,8 +42,8 @@ namespace VoiceMimic
             public float[] samples = Array.Empty<float>();
         }
 
-        public enum Severity{ Warning, Error }
-        public enum Category{ Input, Config, IO }
+        public enum Severity { Warning, Error }
+        public enum Category { Input, Config, IO }
 
         public class Message
         {

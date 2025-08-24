@@ -7,7 +7,6 @@ namespace VoiceMimic
     {
         private readonly VoiceMimicModel model;
         private readonly VoiceMimicView  view;
-        private const int AssetPickerControlID = 123456;
 
         public VoiceMimicPresenter(VoiceMimicModel model, VoiceMimicView view)
         {
@@ -19,7 +18,7 @@ namespace VoiceMimic
         {
             if (TryBuildPcm(out var pcm) == false) return;
 
-            var path = EditorUtility.SaveFilePanel("書き出し", "", "output.wav", "wav");
+            var path = view.PickExportPath();
             if (string.IsNullOrEmpty(path)) return;
 
             WavExporter.Export(pcm, path);
@@ -31,7 +30,7 @@ namespace VoiceMimic
             if (TryBuildPcm(out var pcm) == false) return;
             if (pcm == null || pcm.samples == null || pcm.samples.Length == 0)
             {
-                view.ShowNotification(new GUIContent("再生可能な音声データがありません"));
+                view.Notify("再生可能な音声データがありません");
                 return;
             }
             view.Play(pcm);
@@ -39,8 +38,7 @@ namespace VoiceMimic
 
         public void HandleSaveToAsset()
         {
-            var path = EditorUtility.SaveFilePanelInProject("保存先を選択", "VoiceMimicAsset",
-                "asset", "保存アセットを指定してください");
+            var path = view.PickAssetPath();
             if (string.IsNullOrEmpty(path)) return;
 
             var snap  = view.SnapshotFromView();
@@ -48,12 +46,12 @@ namespace VoiceMimic
             model.WriteToAsset(snap, asset);
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
-            view.ShowNotification(new GUIContent($"保存完了: {path}"));
+            view.Notify($"保存完了: {path}");
         }
 
         public void HandleLoadFromAsset()
         {
-            EditorGUIUtility.ShowObjectPicker<VoiceMimicAsset>(null, false, "", AssetPickerControlID);
+            view.ShowAssetPicker();
         }
 
         private bool TryBuildPcm(out VoiceMimicModel.PcmBuffer pcm)

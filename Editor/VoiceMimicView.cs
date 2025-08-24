@@ -26,6 +26,7 @@ namespace VoiceMimic
         private const int PitchMax = 12;
         private const int CentMin  = -50;
         private const int CentMax  = 50;
+        private const int AssetPickerControlID = 123456;
 
         private VoiceMimicPresenter presenter;
 
@@ -303,6 +304,27 @@ namespace VoiceMimic
                 });
             }
             return new VoiceMimicModel.SequenceSnapshot { sections = list.ToArray() };
+        }
+
+        public string PickExportPath()
+        {
+            return EditorUtility.SaveFilePanel("書き出し", "", "output.wav", "wav");
+        }
+
+        public string PickAssetPath()
+        {
+            return EditorUtility.SaveFilePanelInProject(
+                "保存先を選択", "VoiceMimicAsset", "asset", "保存アセットを指定してください");
+        }
+
+        public void ShowAssetPicker()
+        {
+            EditorGUIUtility.ShowObjectPicker<VoiceMimicAsset>(null, false, "", AssetPickerControlID);
+        }
+
+        public void Notify(string message)
+        {
+            ShowNotification(new GUIContent(message));
         }
 
         public void ShowError(List<VoiceMimicModel.Message> messages)

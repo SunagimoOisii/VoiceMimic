@@ -27,7 +27,6 @@ namespace VoiceMimic
         private const int CentMin  = -50;
         private const int CentMax  = 50;
 
-        private VoiceMimicModel model;
         private VoiceMimicPresenter presenter;
 
         private readonly List<SectionData> sections = new();
@@ -44,9 +43,6 @@ namespace VoiceMimic
         private IntegerField centField;
         private IntegerField fadeField;
 
-        private VoiceMimicAsset selectedAsset;
-        private Label assetNameLabel;
-        private const int AssetPickerControlID = 987321;
 
 
         [MenuItem("Tools/VoiceMimic")]
@@ -58,8 +54,7 @@ namespace VoiceMimic
 
         private void OnEnable()
         {
-            model     = new VoiceMimicModel();
-            presenter = new VoiceMimicPresenter(model, this);
+            presenter = new VoiceMimicPresenter(new VoiceMimicModel(), this);
 
             //UI ToolKit で GUI 作成
             var root  = rootVisualElement;
@@ -79,8 +74,8 @@ namespace VoiceMimic
             split.Add(leftPanel);
 
             var assetBar = new Toolbar();
-            assetBar.Add(new ToolbarButton(() => SaveToAsset())   { text = "設定保存" });
-            assetBar.Add(new ToolbarButton(() => LoadFromAsset()) { text = "設定読込" });
+            assetBar.Add(new ToolbarButton(() => presenter.HandleSaveToAsset()) { text = "設定保存" });
+            assetBar.Add(new ToolbarButton(() => presenter.HandleLoadFromAsset()) { text = "設定読込" });
             leftPanel.Add(assetBar);
 
             //各種ボタン
@@ -310,55 +305,14 @@ namespace VoiceMimic
             return new VoiceMimicModel.SequenceSnapshot { sections = list.ToArray() };
         }
 
-        private void SaveToAsset()
-        {
-#if UNITY_EDITOR
-            var path = EditorUtility.SaveFilePanelInProject("保存先を選択", "VoiceMimicAsset",
-                "asset", "保存アセットを指定してください");
-            if (string.IsNullOrEmpty(path)) return;
-
-            var snap  = SnapshotFromView();
-            var asset = CreateInstance<VoiceMimicAsset>();
-            model.WriteToAsset(snap, asset);
-            AssetDatabase.CreateAsset(asset, path);
-            AssetDatabase.SaveAssets();
-            ShowNotification(new GUIContent($"保存完了: {path}"));
-#endif
-        }
-
-        private void LoadFromAsset()
-        {
-#if UNITY_EDITOR
-            EditorGUIUtility.ShowObjectPicker<VoiceMimicAsset>(null, false, "", 123456);
-#endif
-        }
-
         public void ShowError(List<VoiceMimicModel.Message> messages)
         {
             var text = string.Join("\n", messages.Select(m => $"{m.category}: {m.text}"));
             ShowNotification(new GUIContent(text));
         }
 
-        public void Save(VoiceMimicModel.PcmBuffer pcm)
-        {
-            var path = EditorUtility.SaveFilePanel("書き出し", "", "output.wav", "wav");
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
-
-            model.ExportWav(pcm, path);
-            AssetDatabase.Refresh();
-        }
-
         public void Play(VoiceMimicModel.PcmBuffer pcm)
         {
-            if (pcm == null || pcm.samples == null || pcm.samples.Length == 0)
-            {
-                ShowNotification(new GUIContent("再生可能な音声データがありません"));
-                return;
-            }
-
             int sampleCount = pcm.samples.Length / pcm.channels;
             var clip = AudioClip.Create("preview", sampleCount, pcm.channels, pcm.sampleRate, false);
             clip.SetData(pcm.samples, 0);

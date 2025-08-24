@@ -44,6 +44,11 @@ namespace VoiceMimic
         private IntegerField centField;
         private IntegerField fadeField;
 
+        private VoiceMimicAsset selectedAsset;
+        private Label assetNameLabel;
+        private const int AssetPickerControlID = 987321;
+
+
         [MenuItem("Tools/VoiceMimic")]
         public static void ShowWindow()
         {
@@ -72,6 +77,11 @@ namespace VoiceMimic
         {
             var leftPanel = new VisualElement();
             split.Add(leftPanel);
+
+            var assetBar = new Toolbar();
+            assetBar.Add(new ToolbarButton(() => SaveToAsset())   { text = "設定保存" });
+            assetBar.Add(new ToolbarButton(() => LoadFromAsset()) { text = "設定読込" });
+            leftPanel.Add(assetBar);
 
             //各種ボタン
             var bar = new Toolbar();
@@ -298,6 +308,29 @@ namespace VoiceMimic
                 });
             }
             return new VoiceMimicModel.SequenceSnapshot { sections = list.ToArray() };
+        }
+
+        private void SaveToAsset()
+        {
+#if UNITY_EDITOR
+            var path = EditorUtility.SaveFilePanelInProject("保存先を選択", "VoiceMimicAsset",
+                "asset", "保存アセットを指定してください");
+            if (string.IsNullOrEmpty(path)) return;
+
+            var snap  = SnapshotFromView();
+            var asset = CreateInstance<VoiceMimicAsset>();
+            model.WriteToAsset(snap, asset);
+            AssetDatabase.CreateAsset(asset, path);
+            AssetDatabase.SaveAssets();
+            ShowNotification(new GUIContent($"保存完了: {path}"));
+#endif
+        }
+
+        private void LoadFromAsset()
+        {
+#if UNITY_EDITOR
+            EditorGUIUtility.ShowObjectPicker<VoiceMimicAsset>(null, false, "", 123456);
+#endif
         }
 
         public void ShowError(List<VoiceMimicModel.Message> messages)

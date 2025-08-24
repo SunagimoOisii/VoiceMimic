@@ -12,6 +12,5 @@ namespace VoiceMimic
         public int? randomSeed;
         public int sampleRate = 44100;
         public bool mono = true;
-        public int version = 1;
     }
 }

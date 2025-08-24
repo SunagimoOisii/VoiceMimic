@@ -12,6 +12,7 @@ namespace VoiceMimic
     /// </summary>
     public class VoiceMimicModel
     {
+        [Serializable]
         public class Section
         {
             public UnityEngine.Object clipRef;
@@ -270,6 +271,33 @@ namespace VoiceMimic
                 var s = (short)Mathf.Clamp(pcm.samples[i] * 32767f, -32768f, 32767f);
                 bw.Write(s);
             }
+        }
+
+        public SequenceSnapshot SnapshotFromAsset(VoiceMimicAsset asset)
+        {
+            if (asset == null) return new SequenceSnapshot();
+
+            var sections = asset.sections ?? Array.Empty<Section>();
+            return new SequenceSnapshot
+            {
+                sections   = sections.ToArray(),
+                randomSeed = asset.randomSeed,
+                sampleRate = asset.sampleRate,
+                mono       = asset.mono
+            };
+        }
+
+        public void WriteToAsset(SequenceSnapshot snap, VoiceMimicAsset asset)
+        {
+            if (asset == null || snap == null) return;
+
+            asset.sections   = snap.sections?.ToArray() ?? Array.Empty<Section>();
+            asset.randomSeed = snap.randomSeed;
+            asset.sampleRate = snap.sampleRate;
+            asset.mono       = snap.mono;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(asset);
+#endif
         }
     }
 }

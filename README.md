@@ -29,8 +29,11 @@
 
 ## クラス
 ### VoiceMimicModel
-- `Validate` `OrderSections` `Render` `ExportWav` を公開
+- `Validate` `OrderSections` `Render` を公開
 - 検証結果は `ValidationResult` として詳細を保持
+
+### WavExporter
+- PCM バッファを WAV ファイルへ書き出す
 
 ### VoiceMimicPresenter
 - ボタン押下イベントをハンドリングし、Model を呼び出す

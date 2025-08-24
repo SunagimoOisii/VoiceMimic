@@ -347,7 +347,7 @@ namespace VoiceMimic
                 return;
             }
 
-            model.ExportWav(pcm, new VoiceMimicModel.ExportTarget { path = path });
+            model.ExportWav(pcm, path);
             AssetDatabase.Refresh();
         }
 

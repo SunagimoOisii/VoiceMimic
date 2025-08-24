@@ -31,11 +31,6 @@ namespace VoiceMimic
             public bool mono = true;
         }
 
-        public class ExportTarget
-        {
-            public string path;
-        }
-
         public class PcmBuffer
         {
             public int sampleRate;
@@ -232,20 +227,20 @@ namespace VoiceMimic
             return new PcmBuffer { sampleRate = snap.sampleRate, channels = channels, samples = interleaved };
         }
 
-        public void ExportWav(PcmBuffer pcm, ExportTarget target)
+        public void ExportWav(PcmBuffer pcm, string path)
         {
-            if (string.IsNullOrEmpty(target.path))
+            if (string.IsNullOrEmpty(path))
             {
-                throw new ArgumentException("出力パスが指定されていません", nameof(target));
+                throw new ArgumentException("出力パスが指定されていません", path);
             }
 
-            var dir = Path.GetDirectoryName(target.path);
+            var dir = Path.GetDirectoryName(path);
             if (string.IsNullOrEmpty(dir) == false && Directory.Exists(dir) == false)
             {
                 Directory.CreateDirectory(dir);
             }
 
-            using var fs = new FileStream(target.path, FileMode.Create, FileAccess.Write);
+            using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
             using var bw = new BinaryWriter(fs);
             var dataLength = pcm.samples.Length * 2;
             var riffLength = 36 + dataLength;

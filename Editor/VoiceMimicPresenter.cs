@@ -17,16 +17,7 @@ namespace VoiceMimic
 
         public void HandleExport()
         {
-            var snap = view.SnapshotFromView();
-            var validation = model.Validate(snap);
-            if (validation.isOk == false)
-            {
-                view.ShowError(validation.messages);
-                return;
-            }
-
-            var ordered = model.OrderSections(snap);
-            var pcm     = model.Render(snap, ordered);
+            if (TryBuildPcm(out var pcm) == false) return;
 
             var path = EditorUtility.SaveFilePanel("書き出し", "", "output.wav", "wav");
             if (string.IsNullOrEmpty(path)) return;
@@ -37,16 +28,7 @@ namespace VoiceMimic
 
         public void HandlePlay()
         {
-            var snap = view.SnapshotFromView();
-            var validation = model.Validate(snap);
-            if (validation.isOk == false)
-            {
-                view.ShowError(validation.messages);
-                return;
-            }
-
-            var ordered = model.OrderSections(snap);
-            var pcm     = model.Render(snap, ordered);
+            if (TryBuildPcm(out var pcm) == false) return;
             if (pcm == null || pcm.samples == null || pcm.samples.Length == 0)
             {
                 view.ShowNotification(new GUIContent("再生可能な音声データがありません"));
@@ -72,6 +54,22 @@ namespace VoiceMimic
         public void HandleLoadFromAsset()
         {
             EditorGUIUtility.ShowObjectPicker<VoiceMimicAsset>(null, false, "", AssetPickerControlID);
+        }
+
+        private bool TryBuildPcm(out VoiceMimicModel.PcmBuffer pcm)
+        {
+            var snap = view.SnapshotFromView();
+            var validation = model.Validate(snap);
+            if (validation.isOk == false)
+            {
+                view.ShowError(validation.messages);
+                pcm = null;
+                return false;
+            }
+
+            var ordered = model.OrderSections(snap);
+            pcm = model.Render(snap, ordered);
+            return true;
         }
 
     }
